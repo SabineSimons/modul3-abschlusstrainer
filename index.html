@@ -134,7 +134,19 @@ function resetAll(){askConfirm('Wirklich alle Lernergebnisse, Fehlerlisten und g
 function performResetAll(){const s={...mem.settings};mem=defaults();mem.settings=s;ses=null;saveSession();saveMeta();home();notify('Alle Lernstände wurden zurückgesetzt. Die Fragen bleiben erhalten.')}
 function saveBackup(){const data={type:'modul3-trainer-backup',version:2,created:new Date().toISOString(),records:mem.records,flags:mem.flags,settings:mem.settings,history:mem.history,session:ses};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Modul3_Lernfortschritt_Sicherung.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);notify('Die Sicherungsdatei wurde zum Herunterladen vorbereitet.')}
 function loadBackup(){if(ses&&!ses.complete){askConfirm('Eine Sicherung einzulesen ersetzt deine aktuelle Sitzung und deine Lernstände. Wirklich fortfahren?',()=>openBackupPicker());return}openBackupPicker()}
-function openBackupPicker(){const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.style.display='none';document.body.appendChild(input);input.onchange=async()=>{try{if(!input.files.length)return;const data=JSON.parse(await input.files[0].text());if(data.type!=='modul3-trainer-backup'||!data.records||typeof data.records!=='object'||!data.flags||typeof data.flags!=='object')throw Error('Diese Datei enthält keine gültige Trainer-Sicherung.');/* Das bewusste Auswählen einer Sicherungsdatei löst direkt die Wiederherstellung aus. */const cleanRecords={};for(const [id,r] of Object.entries(data.records)){if(!map.has(id)||!r||typeof r!=='object'||Array.isArray(r))continue;const attempts=Number(r.attempts),correct=Number(r.correct),wrong=Number(r.wrong);if(![attempts,correct,wrong].every(n=>Number.isSafeInteger(n)&&n>=0)||correct+wrong>attempts)continue;cleanRecords[id]={attempts,correct,wrong,lastCorrect:typeof r.lastCorrect==='boolean'?r.lastCorrect:null,lastAt:typeof r.lastAt==='string'?r.lastAt:''};}
+function validateBackup(data){
+ const plain=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
+ if(!plain(data)||data.type!=='modul3-trainer-backup'||![1,2].includes(data.version)||!plain(data.records)||!plain(data.flags))throw Error('Diese Datei enthält keine gültige Trainer-Sicherung.');
+ for(const [id,r] of Object.entries(data.records)){
+  if(!map.has(id))continue;
+  if(!plain(r)||!['attempts','correct','wrong'].every(k=>Number.isSafeInteger(r[k])&&r[k]>=0)||r.correct+r.wrong>r.attempts|| ![true,false,null,undefined].includes(r.lastCorrect))throw Error('Ungültige Lernergebnisse in der Sicherung. Es wurde nichts verändert.');
+ }
+ for(const [id,v] of Object.entries(data.flags))if(map.has(id)&&typeof v!=='boolean')throw Error('Ungültige Markierungen in der Sicherung. Es wurde nichts verändert.');
+ if(data.settings!==undefined&&!plain(data.settings))throw Error('Ungültige Einstellungen in der Sicherung. Es wurde nichts verändert.');
+ if(data.history!==undefined&&!Array.isArray(data.history))throw Error('Ungültiger Prüfungsverlauf in der Sicherung. Es wurde nichts verändert.');
+ if(data.session!=null&&!normalizeSession(data.session))throw Error('Ungültige Sitzung in der Sicherung. Es wurde nichts verändert.');
+}
+function openBackupPicker(){const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.style.display='none';document.body.appendChild(input);input.onchange=async()=>{try{if(!input.files.length)return;const raw=await input.files[0].text();if(raw.length>5000000)throw Error('Die Sicherungsdatei ist zu groß.');const data=JSON.parse(raw);validateBackup(data);/* Das bewusste Auswählen einer Sicherungsdatei löst direkt die Wiederherstellung aus. */const cleanRecords={};for(const [id,r] of Object.entries(data.records)){if(!map.has(id)||!r||typeof r!=='object'||Array.isArray(r))continue;const attempts=Number(r.attempts),correct=Number(r.correct),wrong=Number(r.wrong);if(![attempts,correct,wrong].every(n=>Number.isSafeInteger(n)&&n>=0)||correct+wrong>attempts)continue;cleanRecords[id]={attempts,correct,wrong,lastCorrect:typeof r.lastCorrect==='boolean'?r.lastCorrect:null,lastAt:typeof r.lastAt==='string'?r.lastAt:''};}
 const cleanFlags=Object.fromEntries(Object.entries(data.flags).filter(([id,value])=>map.has(id)&&value===true));
 const rawSettings=data.settings&&typeof data.settings==='object'&&!Array.isArray(data.settings)?data.settings:{};
 const cleanSettings={...defaults().settings,autoplay:rawSettings.autoplay===true,speed:[0.8,1,1.15].includes(rawSettings.speed)?rawSettings.speed:1,pult:['original','variant','mixed'].includes(rawSettings.pult)?rawSettings.pult:'original'};
@@ -186,6 +198,9 @@ document.getElementById('topHome').onclick=()=>safeAction(home);
 document.getElementById('topErrors').onclick=()=>safeAction(showErrors);
 document.getElementById('topReset').onclick=()=>safeAction(resetAll);
 document.getElementById('stopAudio').onclick=stopSpeak;
+// Nach Tabwechsel, Ruhezustand oder Browser-Rueckkehr abgelaufene Pruefungen sofort beenden.
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick()});
+window.addEventListener('pageshow',()=>tick());
 window.addEventListener('error',e=>{if(e.message)revealError(new Error(e.message))});
 init();
 
