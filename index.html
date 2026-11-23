@@ -37,7 +37,7 @@ const MODULES=[
 const KEY='modul3_6edubytes_trainer_v1', SESSION_KEY='modul3_6edubytes_session_v1';
 const map=new Map(BANK.map(q=>[q.id,q]));
 // Schwerpunktbereich: Die woechentlich hinzukommenden E11 und E12 werden automatisch eingebunden.
-const FOCUS_MODULES=[1,2,3,4,5,11,12];
+const FOCUS_MODULES=[1,3,4,5,11,12];
 function focusQuestions(){return BANK.filter(q=>FOCUS_MODULES.includes(q.module))}
 
 const app=document.getElementById('app');
@@ -103,7 +103,7 @@ ${ongoing?`<section class="card resume-box"><h2>▶ Gespeicherte Sitzung</h2><p>
 ${latest?`<section class="card resume-box"><h2>Letztes Ergebnis: ${Math.round(100*ses.result.done/ses.result.total)} %</h2><div class="actions"><button class="btn primary" data-act="reviewLast">Auswertung noch einmal ansehen</button><button class="btn" data-act="clearSession">Ergebnis schließen</button></div></section>`:''}
 
 <section class="card" id="schwerpunkt"><div class="eyebrow">Gezielt für die Prüfung lernen</div><h2>🎯 Schwerpunkttraining</h2>
-<p><b>Aktuell E01 bis E05.</b> E11 und E12 kommen automatisch dazu, sobald die Fragen im Trainer sind. Alle anderen Bereiche bleiben im normalen Lerntraining verfügbar.</p>
+<p><b>Aktuell E01, E03, E04 und E05.</b> E11 und E12 kommen automatisch dazu, sobald die Fragen im Trainer sind. Alle anderen Bereiche bleiben im normalen Lerntraining verfügbar.</p>
 <p class="small muted"><b>${focusQuestions().length} Fragen</b> im Schwerpunkt · Fragen und Antwortmöglichkeiten bei jedem Durchgang gemischt</p>
 <div class="actions"><button class="btn primary" data-act="startFocus" data-set="original">📘 Schwerpunkt: Originalfragen</button><button class="btn" data-act="startFocus" data-set="variant">✍️ Anders gefragt</button><button class="btn" data-act="startFocus" data-set="mixed">🔀 Alles gemischt</button><button class="btn ghost" data-act="startFocusExam">⏱️ 40 Schwerpunktfragen / 40 Min.</button></div>
 </section>
