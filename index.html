@@ -36,6 +36,10 @@ const MODULES=[
 ];
 const KEY='modul3_6edubytes_trainer_v1', SESSION_KEY='modul3_6edubytes_session_v1';
 const map=new Map(BANK.map(q=>[q.id,q]));
+// Schwerpunktbereich: Die woechentlich hinzukommenden E11 und E12 werden automatisch eingebunden.
+const FOCUS_MODULES=[1,2,3,4,5,11,12];
+function focusQuestions(){return BANK.filter(q=>FOCUS_MODULES.includes(q.module))}
+
 const app=document.getElementById('app');
 const defaults=()=>({records:{},flags:{},history:[],settings:{autoplay:false,speed:1,pult:'original'}});
 let mem=defaults(), ses=null,selectedSet='original',storageAvailable=true,clock=null,lastError='',lastSpoken='',pendingAction=null;
@@ -97,6 +101,12 @@ function headerInfo(){return `<section class="card"><div class="eyebrow">Lernen 
 function home(){stopSpeak();lastSpoken='';clearNotice();const ongoing=ses&&!ses.complete;const latest=ses&&ses.complete;app.innerHTML=`${headerInfo()}
 ${ongoing?`<section class="card resume-box"><h2>▶ Gespeicherte Sitzung</h2><p>${ses.mode==='exam'?'Prüfungssimulation':'Lerntraining'} · ${ses.entries.length} Fragen · zuletzt Frage ${ses.index+1}</p><div class="actions"><button class="btn primary" data-act="resume">Jetzt fortsetzen</button><button class="btn danger" data-act="discard">Sitzung verwerfen</button></div></section>`:''}
 ${latest?`<section class="card resume-box"><h2>Letztes Ergebnis: ${Math.round(100*ses.result.done/ses.result.total)} %</h2><div class="actions"><button class="btn primary" data-act="reviewLast">Auswertung noch einmal ansehen</button><button class="btn" data-act="clearSession">Ergebnis schließen</button></div></section>`:''}
+
+<section class="card" id="schwerpunkt"><div class="eyebrow">Gezielt für die Prüfung lernen</div><h2>🎯 Schwerpunkttraining</h2>
+<p><b>Aktuell E01 bis E05.</b> E11 und E12 kommen automatisch dazu, sobald die Fragen im Trainer sind. Alle anderen Bereiche bleiben im normalen Lerntraining verfügbar.</p>
+<p class="small muted"><b>${focusQuestions().length} Fragen</b> im Schwerpunkt · Fragen und Antwortmöglichkeiten bei jedem Durchgang gemischt</p>
+<div class="actions"><button class="btn primary" data-act="startFocus" data-set="original">📘 Schwerpunkt: Originalfragen</button><button class="btn" data-act="startFocus" data-set="variant">✍️ Anders gefragt</button><button class="btn" data-act="startFocus" data-set="mixed">🔀 Alles gemischt</button><button class="btn ghost" data-act="startFocusExam">⏱️ 40 Schwerpunktfragen / 40 Min.</button></div>
+</section>
 <section class="card"><h2>Deine drei Lernpulte</h2><p class="muted small">Pult auswählen, anschließend einen EduByte oder alle vorhandenen starten. Fragen und Antwortmöglichkeiten werden bei neuen Durchgängen gemischt.</p><div class="cols3">${[
 ['original','📘 Lernfragen','200','Fragen aus den vorhandenen EduByte-Bereichen.'],
 ['variant','✍️ Anders gefragt','200','Dieselbe Lernidee mit anders formulierter Frage und neu gemischten Antwortmöglichkeiten.'],
@@ -109,7 +119,7 @@ ${mem.history.length?`<section class="card"><h2>Letzte Übungen und Prüfungen</
  document.getElementById('autoSpeak').onchange=e=>{mem.settings.autoplay=e.target.checked;lastSpoken='';saveMeta()};document.getElementById('voiceRate').onchange=e=>{mem.settings.speed=Number(e.target.value);saveMeta()};safeScroll();}
 function entriesFor(ids,set){const distinct=[...new Set(ids)].filter(id=>map.has(id));return set==='mixed'?shuffled(distinct.flatMap(id=>[{id,form:'original'},{id,form:'variant'}])):shuffled(distinct.map(id=>({id,form:set==='variant'?'variant':'original'})))}
 function startTraining(ids,set=selectedSet,confirmed=false){if(ses&&!ses.complete&&!confirmed){askConfirm('Die aktuelle Sitzung läuft noch. Wirklich ein neues Training starten? Bereits bewertete Antworten bleiben im Lernstand.',()=>startTraining(ids,set,true));return}const entries=entriesFor(ids,set);if(!entries.length){notify('Für diesen Bereich liegen noch keine Fragen vor.');return}lastSpoken='';clearNotice();const modules=[...new Set(entries.map(en=>map.get(en.id).module))];ses={version:2,mode:'train',set,scope:modules.length===1?modules[0]:0,entries:entries.map(withOrder),index:0,picks:{},grades:{},complete:false,startAt:Date.now(),reviewMode:false};saveSession();showCurrent()}
-function startExam(confirmed=false){if(ses&&!ses.complete&&!confirmed){askConfirm('Die aktuelle Sitzung läuft noch. Wirklich eine neue Prüfung beginnen?',()=>startExam(true));return}lastSpoken='';const ids=shuffled(BANK.map(x=>x.id)).slice(0,40);if(ids.length!==40){notify('Es müssen mindestens 40 Fragen vorliegen.');return}clearNotice();ses={version:2,mode:'exam',set:'original',scope:0,entries:ids.map(id=>withOrder({id,form:'original'})),index:0,picks:{},grades:{},complete:false,reviewMode:false,startAt:Date.now(),endAt:Date.now()+40*60000};saveSession();showCurrent()}
+function startExam(confirmed=false,focus=false){if(ses&&!ses.complete&&!confirmed){askConfirm('Die aktuelle Sitzung läuft noch. Wirklich eine neue Prüfung beginnen?',()=>startExam(true,focus));return}lastSpoken='';const ids=shuffled((focus?focusQuestions():BANK).map(x=>x.id)).slice(0,40);if(ids.length!==40){notify('Es müssen mindestens 40 Fragen vorliegen.');return}clearNotice();ses={version:2,mode:'exam',set:'original',scope:0,focusExam:focus,entries:ids.map(id=>withOrder({id,form:'original'})),index:0,picks:{},grades:{},complete:false,reviewMode:false,startAt:Date.now(),endAt:Date.now()+40*60000};saveSession();showCurrent()}
 function entryKey(en){return en.id+'|'+en.form}
 function current(){return ses&&ses.entries[ses.index]}
 function fmtTime(t){t=Math.max(0,Math.ceil(t));return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`}
@@ -178,6 +188,8 @@ case 'startFlagged':startTraining(markedIDs());break;
 case 'resetModule':resetModule(n);break;
 case 'resetAll':resetAll();break;
 case 'startExam':startExam();break;
+case 'startFocus':startTraining(focusQuestions().map(q=>q.id),target.dataset.set||'original');break;
+case 'startFocusExam':startExam(false,true);break;
 case 'resume':showCurrent();break;
 case 'discard':askConfirm('Laufende Sitzung verwerfen? Die bereits gespeicherten Lernergebnisse bleiben erhalten.',()=>{ses=null;saveSession();home()});break;
 case 'prev':go(-1);break;
